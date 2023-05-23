@@ -11,22 +11,30 @@ import 'package:flutter/foundation.dart';
 class LevelState extends ChangeNotifier {
   final VoidCallback onWin;
 
+  final ValueSetter showMsg;
+
   final int goal;
 
-  LevelState({required this.onWin, this.goal = 100});
+  int enteredNumber = 0;
+  
+  LevelState({required this.onWin, required this.showMsg, this.goal = 1});
 
-  int _progress = 0;
+  void evaluate(int value) {
+    enteredNumber++;
 
-  int get progress => _progress;
-
-  void setProgress(int value) {
-    _progress = value;
-    notifyListeners();
-  }
-
-  void evaluate() {
-    if (_progress >= goal) {
+    String msg = "Your guess of $enteredNumber is ";
+    if (value == goal) {
       onWin();
+      msg += "correct";
     }
+    else if(value > goal)
+    {
+      msg += "too high";
+    }
+    else
+    {
+      msg += "too low";
+    }
+    showMsg(msg);
   }
 }
