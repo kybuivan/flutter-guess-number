@@ -3,8 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:logging/logging.dart' hide Level;
 import 'package:provider/provider.dart';
@@ -41,16 +43,21 @@ class _PlaySessionScreenState extends State<PlaySessionScreen> {
 
   late DateTime _startOfPlay;
 
+  final textController = TextEditingController();
+
+  final List<String> messages = <String>[];
+
   @override
   Widget build(BuildContext context) {
     final palette = context.watch<Palette>();
-
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(
           create: (context) => LevelState(
-            goal: widget.level.difficulty,
+            // widget.level.number
+            goal: Random().nextInt(widget.level.upperGuess - widget.level.lowerGuess) + widget.level.lowerGuess,
             onWin: _playerWon,
+            showMsg: (msg) => _playerLog(msg as String),
           ),
         ),
       ],
@@ -76,23 +83,59 @@ class _PlaySessionScreenState extends State<PlaySessionScreen> {
                       ),
                     ),
                     const Spacer(),
-                    Text('Drag the slider to ${widget.level.difficulty}%'
-                        ' or above!'),
+                    Text('What my number ( ${widget.level.lowerGuess} to ${widget.level.upperGuess})?'),
+                    const Spacer(),
+                    Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: SizedBox(
+                        width: 200.0,
+                        child: TextField(
+                          controller: textController,
+                          decoration: InputDecoration(
+                            border: OutlineInputBorder(),
+                            hintText: 'Enter a number',
+                          ),
+                          textAlign: TextAlign.center,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: <TextInputFormatter>[
+                            FilteringTextInputFormatter.digitsOnly
+                          ],
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
                     Consumer<LevelState>(
-                      builder: (context, levelState, child) => Slider(
-                        label: 'Level Progress',
-                        autofocus: true,
-                        value: levelState.progress / 100,
-                        onChanged: (value) =>
-                            levelState.setProgress((value * 100).round()),
-                        onChangeEnd: (value) => levelState.evaluate(),
+                        builder: (context, levelState, child) => SizedBox(
+                          width: 100.0,
+                          child: FilledButton(
+                            onPressed: () => levelState.evaluate(int.parse(textController.text)),
+                            child: const Text('Summit'),
+                          ),
+                        ),
+                      ),
+                    const Spacer(),
+                    Expanded(
+                      child: Scrollbar(
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: messages.length,
+                          scrollDirection: Axis.vertical,
+                          itemBuilder: (BuildContext context, int index) {
+                            return Container(
+                              color: Colors.cyan,
+                              child: Center(child: Text(messages[index])),
+                            );
+                          },
+                          separatorBuilder: (BuildContext context, int index) => const Divider(),
+                          reverse: true,
+                        ),
                       ),
                     ),
                     const Spacer(),
                     Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: SizedBox(
-                        width: double.infinity,
+                        width: 100.0,
                         child: FilledButton(
                           onPressed: () => GoRouter.of(context).go('/play'),
                           child: const Text('Back'),
@@ -134,12 +177,18 @@ class _PlaySessionScreenState extends State<PlaySessionScreen> {
     }
   }
 
+  Future<void> _playerLog(String msg) async {
+    setState(() {
+      messages.add(msg);
+    });
+  }
+
   Future<void> _playerWon() async {
     _log.info('Level ${widget.level.number} won');
 
     final score = Score(
       widget.level.number,
-      widget.level.difficulty,
+      widget.level.lowerGuess,
       DateTime.now().difference(_startOfPlay),
     );
 
